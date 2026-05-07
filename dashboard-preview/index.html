@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI FinOps Radar — Finance Console</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0C10; --panel: #1F2833; --text: #C5C6C7; --text-dim: #8a8d92;
+    --accent: #66FCF1; --accent-2: #45A29E;
+    --green: #2dd4a8; --yellow: #f4c542; --orange: #f4843a; --red: #ef4444;
+    --border: #2c3340;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; padding: 32px 24px; }
+  .container { max-width: 1400px; margin: 0 auto; }
+  header { margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  .brand { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+  .brand h1 { font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--accent); font-weight: 700; }
+  .brand .sub { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
+  .timestamp { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); }
+
+  .headline-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .kpi-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .kpi-value.warn { color: var(--orange); }
+  .kpi-value.crit { color: var(--red); }
+  .kpi-value.pass { color: var(--green); }
+  .kpi-meta { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+
+  section { margin-bottom: 32px; }
+  .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .section-header h2 { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; font-weight: 500; }
+  .section-header .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  th { text-align: left; padding: 12px 16px; background: rgba(102, 252, 241, 0.06); color: var(--accent); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; font-weight: 500; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  td.entity-name { color: var(--text); font-weight: 500; }
+  td.score { font-weight: 700; }
+  td.score.good { color: var(--green); }
+  td.score.warn { color: var(--yellow); }
+  td.score.bad { color: var(--orange); }
+  td.score.crit { color: var(--red); }
+  td.right { text-align: right; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-family: 'JetBrains Mono', monospace; }
+  .badge.healthy { background: rgba(45, 212, 168, 0.15); color: var(--green); }
+  .badge.caution { background: rgba(244, 197, 66, 0.15); color: var(--yellow); }
+  .badge.warning { background: rgba(244, 132, 58, 0.15); color: var(--orange); }
+  .badge.breached { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+  .badge.critical { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+  .badge.warn { background: rgba(244, 132, 58, 0.15); color: var(--orange); }
+  .badge.info { background: rgba(102, 252, 241, 0.15); color: var(--accent); }
+
+  .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .compare-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .compare-card h3 { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+
+  /* Burn-down progress bars */
+  .burn-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px; gap: 12px; }
+  .burn-row:last-child { border-bottom: none; }
+  .burn-name { width: 130px; color: var(--text); font-weight: 500; }
+  .burn-bar { flex: 1; height: 18px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; position: relative; }
+  .burn-bar .fill { height: 100%; transition: width 0.3s; }
+  .burn-bar .fill.healthy { background: var(--green); }
+  .burn-bar .fill.caution { background: var(--yellow); }
+  .burn-bar .fill.warning { background: var(--orange); }
+  .burn-bar .fill.breached { background: var(--red); }
+  .burn-stats { width: 240px; text-align: right; color: var(--text-dim); font-size: 11px; }
+  .burn-stats .spent { color: var(--text); font-weight: 700; font-size: 12px; }
+
+  /* Daily series */
+  .series-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .day { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; }
+  .day.anomaly { border-color: var(--red); }
+  .day-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+  .day-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+  .day-value.anomaly { color: var(--red); }
+  .day-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-family: 'JetBrains Mono', monospace; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="brand">
+    <h1>// AI FINOPS RADAR</h1>
+    <span class="sub">Finance Console · May 2026</span>
+  </div>
+  <div class="timestamp">As of 2026-05-07T16:00:00Z · Window: 7d MTD · Org budget: $50,000 · Catalog: 18 models</div>
+</header>
+
+<!-- KPIs -->
+<div class="headline-grid">
+  <div class="kpi"><div class="kpi-label">Org MTD Spend</div><div class="kpi-value">$22.4K</div><div class="kpi-meta">7 of 31 days</div></div>
+  <div class="kpi"><div class="kpi-label">Org Utilization</div><div class="kpi-value warn">44.7%</div><div class="kpi-meta">on day 7 of 31</div></div>
+  <div class="kpi"><div class="kpi-label">Forecast Month-End</div><div class="kpi-value warn">$98.9K</div><div class="kpi-meta">95% CI: $84K - $114K</div></div>
+  <div class="kpi"><div class="kpi-label">Projected Overrun</div><div class="kpi-value crit">+$48.9K</div><div class="kpi-meta">+98% over budget</div></div>
+  <div class="kpi"><div class="kpi-label">Anomalies (7d)</div><div class="kpi-value crit">1</div><div class="kpi-meta">marketing · May 4</div></div>
+  <div class="kpi"><div class="kpi-label">Top Cost Driver</div><div class="kpi-value">eng</div><div class="kpi-meta">$12.4K · 55% share</div></div>
+</div>
+
+<!-- Daily series -->
+<section>
+  <div class="section-header">
+    <h2>// DAILY SPEND — MTD</h2>
+    <div class="meta">7 days · 1 anomaly flagged</div>
+  </div>
+  <div class="series-grid">
+    <div class="day"><div class="day-label">May 1</div><div class="day-value">$2,840</div><div class="day-meta">baseline</div></div>
+    <div class="day"><div class="day-label">May 2</div><div class="day-value">$2,910</div><div class="day-meta">baseline</div></div>
+    <div class="day"><div class="day-label">May 3</div><div class="day-value">$3,050</div><div class="day-meta">baseline</div></div>
+    <div class="day anomaly"><div class="day-label">May 4</div><div class="day-value anomaly">$8,210</div><div class="day-meta">+182% z=3.4</div></div>
+    <div class="day"><div class="day-label">May 5</div><div class="day-value">$2,980</div><div class="day-meta">recovery</div></div>
+    <div class="day"><div class="day-label">May 6</div><div class="day-value">$3,200</div><div class="day-meta">+5%</div></div>
+    <div class="day"><div class="day-label">May 7</div><div class="day-value">$3,440</div><div class="day-meta">+8% trend up</div></div>
+  </div>
+</section>
+
+<!-- Department Burn-down + Forecast -->
+<div class="grid-two">
+  <div>
+    <div class="section-header">
+      <h2>// DEPARTMENT BURN-DOWN</h2>
+      <div class="meta">monthly budget vs MTD spend</div>
+    </div>
+    <div class="panel" style="padding: 12px 20px;">
+      <div class="burn-row">
+        <span class="burn-name">engineering</span>
+        <div class="burn-bar"><div class="fill warning" style="width: 69%;"></div></div>
+        <span class="burn-stats"><span class="spent">$12.4K</span> / $18K · <span class="badge warning">warning</span></span>
+      </div>
+      <div class="burn-row">
+        <span class="burn-name">data-platform</span>
+        <div class="burn-bar"><div class="fill warning" style="width: 81%;"></div></div>
+        <span class="burn-stats"><span class="spent">$9.7K</span> / $12K · <span class="badge warning">warning</span></span>
+      </div>
+      <div class="burn-row">
+        <span class="burn-name">marketing</span>
+        <div class="burn-bar"><div class="fill breached" style="width: 100%;"></div></div>
+        <span class="burn-stats"><span class="spent">$5.2K</span> / $4K · <span class="badge breached">breached</span></span>
+      </div>
+      <div class="burn-row">
+        <span class="burn-name">support</span>
+        <div class="burn-bar"><div class="fill caution" style="width: 36%;"></div></div>
+        <span class="burn-stats"><span class="spent">$2.2K</span> / $6K · <span class="badge caution">caution</span></span>
+      </div>
+      <div class="burn-row">
+        <span class="burn-name">product</span>
+        <div class="burn-bar"><div class="fill healthy" style="width: 22%;"></div></div>
+        <span class="burn-stats"><span class="spent">$1.8K</span> / $8K · <span class="badge healthy">healthy</span></span>
+      </div>
+      <div class="burn-row">
+        <span class="burn-name">sales</span>
+        <div class="burn-bar"><div class="fill healthy" style="width: 5%;"></div></div>
+        <span class="burn-stats"><span class="spent">$0.1K</span> / $2K · <span class="badge healthy">healthy</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header">
+      <h2>// MONTH-END FORECAST</h2>
+      <div class="meta">linear regression · 95% CI</div>
+    </div>
+    <div class="compare-card" style="margin: 0;">
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">Method</span><span style="font-weight: 700;">linear-regression</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">Trend slope</span><span style="font-weight: 700; color: var(--orange);">+$78/day</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">MTD spend</span><span style="font-weight: 700;">$22,360</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">Forecast EOM</span><span style="font-weight: 700; color: var(--orange);">$98,920</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">95% CI</span><span style="font-weight: 700;">$84.1K - $113.7K</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">Org budget</span><span style="font-weight: 700;">$50,000</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+        <span style="color: var(--text-dim);">Variance</span><span style="font-weight: 700; color: var(--red);">+$48.9K (98%)</span>
+      </div>
+      <div style="margin-top: 12px; padding: 10px; background: rgba(239,68,68,0.08); border-left: 2px solid var(--red); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text);">
+        <strong style="color: var(--red);">RECOMMENDATION:</strong> Identify cost-driver workloads; switch non-critical paths from Opus 4.7 to Sonnet 4.6 (-80%) or Haiku 4.5 (-95%).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Department Chargeback -->
+<section>
+  <div class="section-header">
+    <h2>// DEPARTMENT CHARGEBACK — MTD</h2>
+    <div class="meta">sorted by total spend</div>
+  </div>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Department</th>
+          <th class="right">Spend</th>
+          <th class="right">Share</th>
+          <th class="right">Tokens</th>
+          <th class="right">$/1K tok</th>
+          <th>Top Provider</th>
+          <th>Top Project</th>
+          <th>Top Model</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="entity-name">engineering</td>
+          <td class="right score">$12,420</td>
+          <td class="right">55.5%</td>
+          <td class="right">14.2M</td>
+          <td class="right">$0.875</td>
+          <td>Anthropic ($10.8K)</td>
+          <td>platform-copilot</td>
+          <td>claude-opus-4.7</td>
+        </tr>
+        <tr>
+          <td class="entity-name">data-platform</td>
+          <td class="right score">$9,720</td>
+          <td class="right">43.5%</td>
+          <td class="right">76.8M</td>
+          <td class="right">$0.127</td>
+          <td>OpenAI ($7.5K)</td>
+          <td>rag-index</td>
+          <td>text-embedding-3-large</td>
+        </tr>
+        <tr>
+          <td class="entity-name">marketing</td>
+          <td class="right score crit">$5,180</td>
+          <td class="right">23.2%</td>
+          <td class="right">10.7M</td>
+          <td class="right">$0.484</td>
+          <td>OpenAI ($5.1K)</td>
+          <td>mass-campaign</td>
+          <td>gpt-5</td>
+        </tr>
+        <tr>
+          <td class="entity-name">support</td>
+          <td class="right score">$2,196</td>
+          <td class="right">9.8%</td>
+          <td class="right">40.7M</td>
+          <td class="right">$0.054</td>
+          <td>Anthropic ($2.2K)</td>
+          <td>ticket-triage</td>
+          <td>claude-haiku-4.5</td>
+        </tr>
+        <tr>
+          <td class="entity-name">product</td>
+          <td class="right score">$1,780</td>
+          <td class="right">8.0%</td>
+          <td class="right">3.5M</td>
+          <td class="right">$0.509</td>
+          <td>Anthropic ($1.2K)</td>
+          <td>spec-drafter</td>
+          <td>claude-sonnet-4.6</td>
+        </tr>
+        <tr>
+          <td class="entity-name">sales</td>
+          <td class="right score">$112</td>
+          <td class="right">0.5%</td>
+          <td class="right">0.9M</td>
+          <td class="right">$0.124</td>
+          <td>Anthropic ($112)</td>
+          <td>outreach-personalization</td>
+          <td>claude-haiku-4.5</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Anomaly Detail -->
+<section>
+  <div class="section-header">
+    <h2>// ANOMALY DETAIL — MAY 4</h2>
+    <div class="meta">marketing · mass-campaign</div>
+  </div>
+  <div class="panel" style="padding: 20px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-bottom: 16px;">
+      <div><div style="color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; font-size: 10px;">Date</div><div style="font-size: 14px; font-weight: 700;">2026-05-04</div></div>
+      <div><div style="color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; font-size: 10px;">Spend</div><div style="font-size: 14px; font-weight: 700; color: var(--red);">$8,210</div></div>
+      <div><div style="color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; font-size: 10px;">7d Mean</div><div style="font-size: 14px; font-weight: 700;">$2,910</div></div>
+      <div><div style="color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; font-size: 10px;">Z-score</div><div style="font-size: 14px; font-weight: 700; color: var(--red);">3.4</div></div>
+    </div>
+    <div style="padding: 10px 14px; background: rgba(239,68,68,0.08); border-left: 2px solid var(--red); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text);">
+      <strong style="color: var(--red);">CRITICAL:</strong> Spend $8,210 is 182% over rolling-7d mean of $2,910 (z=3.4). Driver: marketing/mass-campaign · GPT-5 · 8.3M input + 2.15M output tokens. Recommend audit and pre-approval gating for batches > $1K projected cost.
+    </div>
+  </div>
+</section>
+
+<footer>
+  ai-finops-radar · part of the AI Platform Engineering portfolio · <a href="https://github.com/mizcausevic-dev" style="color: var(--accent);">github.com/mizcausevic-dev</a>
+</footer>
+
+</div>
+</body>
+</html>
