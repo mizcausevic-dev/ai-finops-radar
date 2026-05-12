@@ -7,9 +7,9 @@ This log is intentionally written as an engineering record rather than a launch 
 ## [1.0.0] - 2026-05-12
 
 ### Released
-- Published \$name\ as a public, portfolio-grade event-driven revenue systems system.
+- Published **ai-finops-radar** as a public, portfolio-grade event-driven revenue systems system.
 - Packaged the current implementation, documentation, validation workflow, and proof surfaces into a repo that could be reviewed by engineering, product, and operating stakeholders.
-- Tightened the repo story around the real-world operating problem: high-value operational systems were still vulnerable to dual-write drift, event-order ambiguity, and poor downstream explainability.
+- Tightened the repo story around the real-world operating problem: dual-write drift, event-order ambiguity, and poor downstream explainability in high-value operational systems.
 
 ### Why this mattered
 - Existing approaches in stream processors, BI dashboards, and generic messaging infrastructure were useful, but they solved transport, but not the operational need for exactly-once semantics, replay confidence, and business-legible evidence.
@@ -18,7 +18,7 @@ This log is intentionally written as an engineering record rather than a launch 
 ## [0.1.0] - 2026-03-17
 
 ### Shipped
-- Cut the first coherent internal version of the product shape behind \$name\.
+- Cut the first coherent internal version of the product shape behind **ai-finops-radar**.
 - Standardized the core objects, decision surfaces, and operator outputs around the repo's main working problem.
 - Established the first reviewable version of the architecture described as: FinOps governance layer for enterprise AI spend. Token-level cost attribution, multi-provider price comparison, budget burn-down, anomaly detection, monthly forecasting with confidence intervals, and department chargeback rollups.
 
@@ -55,12 +55,12 @@ This log is intentionally written as an engineering record rather than a launch 
 ## [Idea Origin] - 2023-03-12
 
 ### Observed
-- The initial idea surfaced while looking at how teams were handling high-value operational systems were still vulnerable to dual-write drift, event-order ambiguity, and poor downstream explainability.
+- The initial idea surfaced while looking at how teams were handling dual-write drift, event-order ambiguity, and poor downstream explainability in high-value operational systems.
 - The recurring pattern was that people could often see fragments of the problem, but not the whole operational story in one place.
 
 ### Insight
 - The missing product was not another point solution. It was a clearer operating layer that made the work legible to fintech, RevOps, and platform data teams.
-- That insight became the basis for \$name\.
+- That insight became the basis for **ai-finops-radar**.
 
 ## [Background Signals] - 2022-08-09
 
