@@ -36,6 +36,13 @@ test('computeCost: effective rate per 1k tokens computed', () => {
   assert.ok(Math.abs(r.effectiveRateUsdPer1k - 0.0008) < 0.00001);
 });
 
+test('computeCost: rejects cached tokens exceeding input tokens', () => {
+  assert.throws(
+    () => computeCost({ modelId: 'claude-haiku-4.5', inputTokens: 10, outputTokens: 0, cachedInputTokens: 11 }),
+    /cachedInputTokens cannot exceed inputTokens/
+  );
+});
+
 test('compareProviders: Haiku beats Opus on cost for same workload', () => {
   const rows = compareProviders({
     inputTokens: 100_000,

@@ -5,17 +5,15 @@
 [![TypeScript](https://img.shields.io/badge/typescript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-66FCF1)](LICENSE)
 
-FinOps governance layer for enterprise AI spend. Token-level cost attribution, multi-provider price comparison, budget burn-down with tiered alerts, daily anomaly detection, monthly forecasting with confidence intervals, and department chargeback rollups.
+Local FinOps logic demonstrator for AI usage. It computes sample token costs, budgets, anomaly signals, an illustrative month-end projection, and department chargeback from synthetic events.
 
-> Recruiter takeaway:
->
-> *"This person built the FinOps tooling every CFO is asking the platform team for. Token-level attribution, anomaly detection, monthly forecasting, and chargeback — all as testable backend logic that can drop into a finance review."*
+> **Demo boundary:** No provider billing or invoice feed is connected. The 17-entry price catalog is illustrative and unverified for current provider rates or your contracts. The May 2026 usage records, departments, and budgets are synthetic. Forecast ranges are heuristic and have no validated statistical coverage. Do not use these outputs for invoices, purchasing, or production chargeback.
 
 ## Why This Exists
 
-Most companies shipping AI in 2026 have the same blind spot: **finance can see total spend but not why it's happening.** The Anthropic invoice arrives at month-end and somebody on the platform team gets pulled into a meeting they can't prepare for. There's no chargeback model. No anomaly alerts. No forecast. No way to say "engineering's copilot drove 60% of spend, marketing's mass campaign on May 4 was a one-day anomaly, and we're on track to hit budget +12% if nothing changes."
+Finance teams need a way to connect model usage to budgets and cost drivers. This repository demonstrates the calculations with a fixed, inspectable fixture rather than claiming live invoice coverage.
 
-This repo is that visibility layer. It treats AI spend like any other FinOps surface — pricing catalog, budget tracking, anomaly detection, forecasting, chargeback — except built for the LLM provider mix instead of cloud compute.
+The modules cover pricing inputs, budget tracking, anomaly detection, forecasting, and chargeback. An authenticated ingestion and reconciliation layer would be needed before operational use.
 
 ## Where This Sits in the Portfolio
 
@@ -26,17 +24,17 @@ This repo is that visibility layer. It treats AI spend like any other FinOps sur
 | [`agent-codex`](https://github.com/mizcausevic-dev/agent-codex) | Decisions | Under what policies are decisions allowed? |
 | [`agent-eval-arena`](https://github.com/mizcausevic-dev/agent-eval-arena) | Pre-prod | Should this model promotion ship? |
 | [`agentobserve`](https://github.com/mizcausevic-dev/agentobserve) | Runtime | What did agents actually do? |
-| [`shadow-ai-detector`](https://github.com/mizcausevic-dev/shadow-ai-detector) | Egress | Who's leaking what to whom? |
+| [`shadow-ai-detector`](https://github.com/mizcausevic-dev/shadow-ai-detector) | Egress | Which sample destinations and patterns warrant review? |
 | [`kinetic-flightdeck`](https://github.com/mizcausevic-dev/kinetic-flightdeck) | Operator | Are we OK right now? |
-| **`ai-finops-radar`** | **Finance** | ***Are we on budget — and why not?*** |
+| **`ai-finops-radar`** | **Finance** | ***How do sample usage records compare with a sample budget?*** |
 
 ## Five Capabilities
 
 ### 1. Cost Calculator + Price Comparator
 
-Pricing catalog covers ~18 models across Anthropic, OpenAI, Google, AWS Bedrock, Cohere, Mistral, and inference hosts (Together, Groq, Fireworks). Each entry tracks input rate, output rate, optional cached-input rate, capability tags, and context window.
+The illustrative catalog contains 17 entries across Anthropic, OpenAI, Google, AWS Bedrock, Cohere, Mistral, and inference hosts (Together, Groq, Fireworks). Each entry tracks input rate, output rate, optional cached-input rate, capability tags, and context window. Rates and model availability have not been verified for production use.
 
-Cost computation handles cached-input discounts (Anthropic-style prompt caching). Provider comparator returns ranked rows with `vsBaselinePct` so finance can see "switching this workload from Opus to Haiku saves 95%."
+Cost computation handles cached-input discounts. The comparator returns ranked rows with `vsBaselinePct` for this sample catalog; workload quality and actual contract rates must be checked before a switch.
 
 ### 2. Budget Tracker
 
@@ -52,11 +50,11 @@ The output names what happened in dollars and percent — not just "anomaly dete
 
 ### 4. Monthly Forecasting
 
-Linear regression on day-of-month vs daily spend produces month-end forecast with **95% confidence interval** computed from residual standard deviation. Falls back to mean-based projection when fewer than 4 datapoints. The output includes the slope so a CFO can see "trend is +$340/day."
+Linear regression on daily spend produces a month-end estimate and an **illustrative range** derived from residual spread. The range is not a calibrated confidence or prediction interval. The series must include one entry for every UTC day from the month's first day through `asOf`, including explicit zero-spend days. Fewer than four observations use a mean-based projection.
 
 ### 5. Department Chargeback
 
-Rollup includes per-department: total spend, share of org spend, unique users/projects/providers, top provider/model/project (with dollar contribution), cost per 1k tokens. Sorted by spend so the biggest line items are first. This is the rollup that goes into a finance review packet.
+Rollup includes per-department: total spend, share of org spend, unique users/projects/providers, top provider/model/project (with dollar contribution), cost per 1k tokens. Sorted by spend so the biggest sample line items are first. Reconcile real usage and invoices before using a rollup in a finance review packet.
 
 ## API Endpoints
 
@@ -81,7 +79,7 @@ Rollup includes per-department: total spend, share of org spend, unique users/pr
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/api/insights/anomalies` | Detect anomalies in a daily-cost series |
-| POST | `/api/insights/forecast` | Forecast month-end spend with CI |
+| POST | `/api/insights/forecast` | Illustrative month-end projection and range |
 | POST | `/api/insights/chargeback` | Department chargeback rollup |
 
 ### Dashboard
@@ -114,11 +112,13 @@ POST /api/cost/compare
 }
 ```
 
-A 20× cost difference for the same workload is the kind of number that gets executives' attention.
+These illustrative rates produce a wide spread for the same token counts; they do not compare model quality, availability, or contracted cost.
 
 ## Operator Console Preview
 
-![AI FinOps Radar dashboard — budget burn, anomaly detection, forecast, department chargeback](docs/hero.png)
+![Local AI FinOps Radar preview populated from the synthetic API fixture](docs/hero.png)
+
+This is a Chrome capture of `/preview` against the running local API. The page fetches `/api/dashboard/summary`; it is not a mock graphic or evidence of live billing data. Recreate it with `npm run build`, `npm start`, then open `http://127.0.0.1:3000/preview`.
 
 ## Getting Started
 
@@ -132,7 +132,7 @@ A 20× cost difference for the same workload is the kind of number that gets exe
 ```bash
 git clone https://github.com/mizcausevic-dev/ai-finops-radar.git
 cd ai-finops-radar
-npm install
+npm ci
 npm run dev
 ```
 
@@ -141,6 +141,7 @@ Visit:
 - `http://localhost:3000/health`
 - `http://localhost:3000/api/dashboard/summary`
 - `http://localhost:3000/api/cost/catalog`
+- `http://127.0.0.1:3000/preview`
 
 ### Run Tests
 
@@ -148,16 +149,20 @@ Visit:
 npm test
 ```
 
-24 unit tests across cost calculation, provider comparison, budget evaluation, anomaly detection, forecasting, and chargeback rollup.
+The test suite covers cost calculation, provider comparison, budget evaluation, anomaly detection, forecasting, chargeback windows, API validation, and the preview route.
 
 ## What This Demonstrates
 
 - FinOps thinking applied to AI spend (the topic every director-level role asks about)
-- Pricing catalog research — covers cached-input discounts, embedding pricing, inference-host alternatives
-- Statistical foundation — z-score anomaly detection, linear regression forecasting with proper CI
+- Sample pricing inputs that illustrate cached-input discounts, embedding pricing, and inference-host alternatives
+- Reproducible heuristic analytics — z-score anomaly detection and linear regression with an explicitly uncalibrated range
 - Budget logic that combines current AND projected utilization (not just simple percentage)
-- Department-level chargeback that drives down to top model + top project per dept
-- Strict-mode TypeScript with full test coverage; CI matrix on Node 20 + 22
+- Sample department rollup that identifies top model and project in the fixture
+- Strict-mode TypeScript with CI on Node 20 + 22
+
+## Production gates
+
+The service binds to `127.0.0.1` and is a local demo. An external deployment would require authenticated tenant-scoped ingestion, invoice reconciliation, current provider and contract price provenance, access controls for employee and department data, request abuse controls, retention rules, and observability. No production deployment is configured or claimed.
 
 ## Future Enhancements
 
@@ -171,7 +176,7 @@ npm test
 ## Tech Stack
 
 - Node.js, TypeScript, Express, Zod
-- Helmet, CORS, Morgan
+- Helmet
 - Node test runner
 
 ## Portfolio Links

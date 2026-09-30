@@ -1,7 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
-import cors from 'cors';
-import morgan from 'morgan';
+import path from 'path';
 import { env } from './config/env';
 import { costRouter, budgetsRouter, insightsRouter, dashboardRouter } from './routes/index';
 
@@ -9,9 +8,7 @@ export const app = express();
 const startedAt = Date.now();
 
 app.use(helmet());
-app.use(cors());
-app.use(morgan('tiny'));
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '256kb' }));
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -22,6 +19,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.get('/preview', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '..', 'dashboard-preview', 'index.html'));
+});
+app.get('/preview.js', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '..', 'dashboard-preview', 'preview.js'));
+});
+
 app.use('/api/cost', costRouter);
 app.use('/api/budgets', budgetsRouter);
 app.use('/api/insights', insightsRouter);
@@ -29,8 +35,15 @@ app.use('/api/dashboard', dashboardRouter);
 
 app.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
 
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const type = typeof err === 'object' && err !== null && 'type' in err ? String(err.type) : '';
+  if (type === 'entity.too.large') { res.status(413).json({ error: 'Request body too large' }); return; }
+  if (type === 'entity.parse.failed') { res.status(400).json({ error: 'Invalid JSON' }); return; }
+  res.status(500).json({ error: 'Internal error' });
+});
+
 if (require.main === module) {
-  app.listen(env.port, () => {
+  app.listen(env.port, '127.0.0.1', () => {
     // eslint-disable-next-line no-console
     console.log(`ai-finops-radar listening on :${env.port}`);
   });

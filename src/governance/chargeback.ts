@@ -51,11 +51,22 @@ function topByValue<T extends Record<string, number>>(map: Map<string, number>, 
 }
 
 export function rollupChargeback(events: UsageEvent[], windowStart: string, windowEnd: string): ChargebackRollup {
-  if (events.length === 0) {
+  const start = windowStart.length === 10 ? `${windowStart}T00:00:00.000Z` : windowStart;
+  const end = windowEnd.length === 10 ? `${windowEnd}T23:59:59.999Z` : windowEnd;
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs) {
+    throw new RangeError('windowStart must be at or before windowEnd.');
+  }
+  const included = events.filter((event) => {
+    const timestamp = Date.parse(event.timestamp);
+    return Number.isFinite(timestamp) && timestamp >= startMs && timestamp <= endMs;
+  });
+  if (included.length === 0) {
     return { totalOrgSpendUsd: 0, totalEvents: 0, windowStart, windowEnd, departments: [] };
   }
 
-  const totalOrgSpendUsd = events.reduce((s, e) => s + e.totalCostUsd, 0);
+  const totalOrgSpendUsd = included.reduce((s, e) => s + e.totalCostUsd, 0);
   const buckets = new Map<string, {
     department: string;
     totalCostUsd: number;
@@ -69,7 +80,7 @@ export function rollupChargeback(events: UsageEvent[], windowStart: string, wind
     projectCosts: Map<string, number>;
   }>();
 
-  for (const e of events) {
+  for (const e of included) {
     const cur = buckets.get(e.department) || {
       department: e.department,
       totalCostUsd: 0,
@@ -122,7 +133,7 @@ export function rollupChargeback(events: UsageEvent[], windowStart: string, wind
 
   return {
     totalOrgSpendUsd: Math.round(totalOrgSpendUsd * 100) / 100,
-    totalEvents: events.length,
+    totalEvents: included.length,
     windowStart,
     windowEnd,
     departments,

@@ -20,6 +20,9 @@ export const costRouter = Router();
 costRouter.post('/compute', (req, res) => {
   const parsed = CostInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Invalid payload', details: parsed.error.issues }); return; }
+  if ((parsed.data.cachedInputTokens ?? 0) > parsed.data.inputTokens) {
+    res.status(400).json({ error: 'cachedInputTokens cannot exceed inputTokens' }); return;
+  }
   try { res.json(computeCost(parsed.data)); }
   catch (err) { res.status(404).json({ error: (err as Error).message }); }
 });
@@ -31,7 +34,7 @@ costRouter.post('/compare', (req, res) => {
 });
 
 costRouter.get('/catalog', (_req, res) => {
-  res.json({ catalogSize: PRICING_CATALOG.length, pricing: PRICING_CATALOG });
+  res.json({ dataMode: 'synthetic-demo', priceStatus: 'illustrative-unverified', catalogSize: PRICING_CATALOG.length, pricing: PRICING_CATALOG });
 });
 
 costRouter.get('/catalog/:modelId', (req, res) => {
@@ -68,13 +71,15 @@ insightsRouter.post('/anomalies', (req, res) => {
 insightsRouter.post('/forecast', (req, res) => {
   const parsed = ForecastInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Invalid payload', details: parsed.error.issues }); return; }
-  res.json(forecastMonthEnd(parsed.data));
+  try { res.json(forecastMonthEnd(parsed.data)); }
+  catch (err) { res.status(400).json({ error: (err as Error).message }); }
 });
 
 insightsRouter.post('/chargeback', (req, res) => {
   const parsed = ChargebackSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Invalid payload', details: parsed.error.issues }); return; }
-  res.json(rollupChargeback(parsed.data.events, parsed.data.windowStart, parsed.data.windowEnd));
+  try { res.json(rollupChargeback(parsed.data.events, parsed.data.windowStart, parsed.data.windowEnd)); }
+  catch (err) { res.status(400).json({ error: (err as Error).message }); }
 });
 
 export const dashboardRouter = Router();
@@ -99,7 +104,8 @@ dashboardRouter.get('/summary', (_req, res) => {
   const chargeback = rollupChargeback(USAGE_EVENTS, '2026-05-01', '2026-05-07T16:00:00Z');
 
   res.json({
-    capturedAt: new Date().toISOString(),
+    dataMode: 'synthetic-demo',
+    fixtureAsOf: '2026-05-07T16:00:00Z',
     series,
     org: orgStatus,
     departments: deptStatus,

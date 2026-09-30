@@ -101,14 +101,21 @@ test('forecastMonthEnd: insufficient data uses simple-mean', () => {
   assert.equal(r.forecastMethod, 'simple-mean');
 });
 
-test('forecastMonthEnd: confidence interval contains forecast', () => {
+test('forecastMonthEnd: illustrative range contains forecast', () => {
   const series = Array.from({ length: 5 }, (_, i) => ({
     date: `2026-05-${String(i + 1).padStart(2, '0')}`,
     costUsd: 200 + Math.sin(i) * 10,
   }));
   const r = forecastMonthEnd({ series, monthStart: '2026-05-01', asOf: '2026-05-05T12:00:00Z' });
-  assert.ok(r.confidenceInterval95.low <= r.forecastMonthEndUsd);
-  assert.ok(r.confidenceInterval95.high >= r.forecastMonthEndUsd);
+  assert.ok(r.illustrativeRangeUsd.low <= r.forecastMonthEndUsd);
+  assert.ok(r.illustrativeRangeUsd.high >= r.forecastMonthEndUsd);
+});
+
+test('forecastMonthEnd: rejects missing or repeated daily observations', () => {
+  assert.throws(() => forecastMonthEnd({
+    series: [{ date: '2026-05-01', costUsd: 10 }, { date: '2026-05-01', costUsd: 20 }],
+    monthStart: '2026-05-01', asOf: '2026-05-02T12:00:00Z',
+  }), /one point per day/);
 });
 
 test('rollupChargeback: aggregates department spend correctly', () => {
@@ -140,4 +147,20 @@ test('rollupChargeback: top provider/model/project tracked', () => {
   assert.equal(r.departments[0].topProject.project, 'big');
   assert.equal(r.departments[0].topModel.modelId, 'claude-opus-4.7');
   assert.equal(r.departments[0].topProvider.provider, 'Anthropic');
+});
+
+test('rollupChargeback: excludes out-of-window events and includes the end date', () => {
+  const event = (eventId: string, timestamp: string, totalCostUsd: number) => ({
+    eventId, timestamp, totalCostUsd, user: 'a@x', department: 'eng', project: 'p1',
+    modelId: 'claude-opus-4.7', provider: 'Anthropic', inputTokens: 100, outputTokens: 50,
+  });
+  const r = rollupChargeback([
+    event('before', '2026-04-30T23:59:59Z', 100),
+    event('first', '2026-05-01T00:00:00Z', 10),
+    event('last', '2026-05-02T23:59:59Z', 20),
+    event('after', '2026-05-03T00:00:00Z', 200),
+  ], '2026-05-01', '2026-05-02');
+  assert.equal(r.totalEvents, 2);
+  assert.equal(r.totalOrgSpendUsd, 30);
+  assert.equal(r.departments[0].share, 100);
 });
