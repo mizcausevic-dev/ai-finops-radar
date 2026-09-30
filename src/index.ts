@@ -1,11 +1,14 @@
 import express from 'express';
 import helmet from 'helmet';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { env } from './config/env';
 import { costRouter, budgetsRouter, insightsRouter, dashboardRouter } from './routes/index';
 
 export const app = express();
 const startedAt = Date.now();
+const previewHtml = readFileSync(path.join(__dirname, '..', 'dashboard-preview', 'index.html'), 'utf8');
+const previewScript = readFileSync(path.join(__dirname, '..', 'dashboard-preview', 'preview.js'), 'utf8');
 
 app.use(helmet());
 app.use(express.json({ limit: '256kb' }));
@@ -21,11 +24,11 @@ app.get('/health', (_req, res) => {
 
 app.get('/preview', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(__dirname, '..', 'dashboard-preview', 'index.html'));
+  res.type('html').send(previewHtml);
 });
 app.get('/preview.js', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(__dirname, '..', 'dashboard-preview', 'preview.js'));
+  res.type('js').send(previewScript);
 });
 
 app.use('/api/cost', costRouter);
