@@ -66,3 +66,43 @@ test('request body limit rejects oversized input', async () => {
   });
   assert.equal(response.status, 413);
 });
+
+test('chargeback API rejects impossible dates instead of counting normalized March spend', async () => {
+  const event = {
+    eventId: 'march3', timestamp: '2026-03-03T12:00:00Z', user: 'a@x',
+    department: 'eng', project: 'p1', modelId: 'claude-opus-4.7', provider: 'Anthropic',
+    inputTokens: 100, outputTokens: 50, totalCostUsd: 7,
+  };
+  const invalidWindow = await post('/api/insights/chargeback', {
+    events: [event], windowStart: '2026-02-31', windowEnd: '2026-03-03',
+  });
+  assert.equal(invalidWindow.status, 400);
+  const invalidEvent = await post('/api/insights/chargeback', {
+    events: [{ ...event, timestamp: '2026-02-31T12:00:00Z' }],
+    windowStart: '2026-03-03', windowEnd: '2026-03-03',
+  });
+  assert.equal(invalidEvent.status, 400);
+  const validWindow = await post('/api/insights/chargeback', {
+    events: [event], windowStart: '2026-03-03', windowEnd: '2026-03-03',
+  });
+  assert.equal(validWindow.status, 200);
+  const body = await validWindow.json() as { totalOrgSpendUsd: number; totalEvents: number };
+  assert.equal(body.totalOrgSpendUsd, 7);
+  assert.equal(body.totalEvents, 1);
+});
+
+test('budget API rejects asOf outside the specified month', async () => {
+  const budget = {
+    budgetId: 'b_test', scope: 'department', scopeName: 'engineering',
+    monthlyBudgetUsd: 10000, startOfMonth: '2026-05-01', rolloverPolicy: 'reset',
+  };
+  for (const asOf of ['2026-04-30T12:00:00Z', '2026-06-01T00:00:00Z']) {
+    const response = await post('/api/budgets/evaluate', { budget, spentUsd: 100, asOf });
+    assert.equal(response.status, 400);
+  }
+  const valid = await post('/api/budgets/evaluate', {
+    budget, spentUsd: 100, asOf: '2026-05-07T12:00:00Z',
+  });
+  assert.equal(valid.status, 200);
+  assert.equal((await valid.json() as { projectedMonthEndUsd: number }).projectedMonthEndUsd, 476.92);
+});

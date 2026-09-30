@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { nextUtcMonthStart, parseUtcDate, parseUtcInstant, parseUtcWindowBoundary } from '../governance/utc-date';
+
+const validUtcDate = (value: string) => parseUtcDate(value) !== null;
+const validUtcInstant = (value: string) => parseUtcInstant(value) !== null;
+const validUtcBoundary = (value: string) => parseUtcWindowBoundary(value, false) !== null;
 
 export const CostInputSchema = z.object({
   modelId: z.string().min(1).max(100),
@@ -19,15 +24,22 @@ export const BudgetEvalSchema = z.object({
     scope: z.enum(['org', 'department', 'project']),
     scopeName: z.string().min(1).max(100),
     monthlyBudgetUsd: z.number().min(0).max(1_000_000_000),
-    startOfMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    startOfMonth: z.string().regex(/^\d{4}-\d{2}-01$/).refine(validUtcDate, 'Must be the first day of a valid UTC month.'),
     rolloverPolicy: z.enum(['reset', 'rollover']),
   }),
   spentUsd: z.number().min(0).max(1_000_000_000),
-  asOf: z.string().datetime(),
+  asOf: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
+}).superRefine((input, context) => {
+  const startMs = parseUtcDate(input.budget.startOfMonth);
+  const asOfMs = parseUtcInstant(input.asOf);
+  if (startMs === null || asOfMs === null || !input.budget.startOfMonth.endsWith('-01')) return;
+  if (asOfMs < startMs || asOfMs >= nextUtcMonthStart(startMs)) {
+    context.addIssue({ code: 'custom', path: ['asOf'], message: 'Must be within the budget month.' });
+  }
 });
 
 export const SeriesPointSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().refine(validUtcDate, 'Must be a valid UTC date.'),
   costUsd: z.number().min(0).max(1_000_000_000),
 });
 
@@ -41,13 +53,13 @@ export const AnomalyDetectSchema = z.object({
 
 export const ForecastInputSchema = z.object({
   series: z.array(SeriesPointSchema).min(1).max(31),
-  monthStart: z.string().regex(/^\d{4}-\d{2}-01$/),
-  asOf: z.string().datetime(),
+  monthStart: z.string().regex(/^\d{4}-\d{2}-01$/).refine(validUtcDate, 'Must be a valid UTC date.'),
+  asOf: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
 });
 
 const UsageEventSchema = z.object({
   eventId: z.string().min(1).max(100),
-  timestamp: z.string().datetime(),
+  timestamp: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
   user: z.string().min(1).max(200),
   department: z.string().min(1).max(100),
   project: z.string().min(1).max(100),
@@ -60,6 +72,6 @@ const UsageEventSchema = z.object({
 
 export const ChargebackSchema = z.object({
   events: z.array(UsageEventSchema).min(1).max(500),
-  windowStart: z.string().regex(/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?$/),
-  windowEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?$/),
+  windowStart: z.string().refine(validUtcBoundary, 'Must be a valid UTC date or instant.'),
+  windowEnd: z.string().refine(validUtcBoundary, 'Must be a valid UTC date or instant.'),
 });

@@ -2,6 +2,8 @@
 // that finance actually invoices on: which department spent how much,
 // across which providers, on what use cases.
 
+import { parseUtcInstant, parseUtcWindowBoundary } from './utc-date';
+
 export interface UsageEvent {
   eventId: string;
   timestamp: string;
@@ -51,16 +53,14 @@ function topByValue<T extends Record<string, number>>(map: Map<string, number>, 
 }
 
 export function rollupChargeback(events: UsageEvent[], windowStart: string, windowEnd: string): ChargebackRollup {
-  const start = windowStart.length === 10 ? `${windowStart}T00:00:00.000Z` : windowStart;
-  const end = windowEnd.length === 10 ? `${windowEnd}T23:59:59.999Z` : windowEnd;
-  const startMs = Date.parse(start);
-  const endMs = Date.parse(end);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs) {
-    throw new RangeError('windowStart must be at or before windowEnd.');
+  const startMs = parseUtcWindowBoundary(windowStart, false);
+  const endMs = parseUtcWindowBoundary(windowEnd, true);
+  if (startMs === null || endMs === null || startMs > endMs) {
+    throw new RangeError('windowStart and windowEnd must be valid, ordered UTC dates.');
   }
   const included = events.filter((event) => {
-    const timestamp = Date.parse(event.timestamp);
-    return Number.isFinite(timestamp) && timestamp >= startMs && timestamp <= endMs;
+    const timestamp = parseUtcInstant(event.timestamp);
+    return timestamp !== null && timestamp >= startMs && timestamp <= endMs;
   });
   if (included.length === 0) {
     return { totalOrgSpendUsd: 0, totalEvents: 0, windowStart, windowEnd, departments: [] };

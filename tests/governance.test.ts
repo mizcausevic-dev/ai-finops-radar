@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { evaluateBudget } from '../src/governance/budget-tracker';
 import { detectAnomalies } from '../src/governance/anomaly-detector';
 import { forecastMonthEnd } from '../src/governance/forecaster';
 import { rollupChargeback } from '../src/governance/chargeback';
+import { parseUtcDate, parseUtcInstant } from '../src/governance/utc-date';
 
 const BUDGET = {
   budgetId: 'b_test',
@@ -38,6 +41,28 @@ test('evaluateBudget: zero budget edge case', () => {
   const zero = { ...BUDGET, monthlyBudgetUsd: 0 };
   const r = evaluateBudget(zero, 100, '2026-05-07T12:00:00Z');
   assert.equal(r.status, 'breached');
+});
+
+test('evaluateBudget: rejects dates outside its UTC budget month', () => {
+  assert.throws(() => evaluateBudget(BUDGET, 100, '2026-04-30T12:00:00Z'), /within the budget month/);
+  assert.throws(() => evaluateBudget(BUDGET, 100, '2026-06-01T00:00:00Z'), /within the budget month/);
+  assert.throws(() => evaluateBudget({ ...BUDGET, startOfMonth: '2026-05-15' }, 100, '2026-05-16T00:00:00Z'), /first day/);
+});
+
+test('evaluateBudget: UTC month length and projection are stable across timezones', () => {
+  const script = `const { evaluateBudget } = require('./src/governance/budget-tracker');
+    const result = evaluateBudget(${JSON.stringify(BUDGET)}, 100, '2026-05-07T12:00:00Z');
+    process.stdout.write(JSON.stringify({ daysRemaining: result.daysRemaining, projectedMonthEndUsd: result.projectedMonthEndUsd }));`;
+  const evaluateInZone = (zone: string) => {
+    const run = spawnSync(process.execPath, ['--require', 'ts-node/register', '-e', script], {
+      cwd: resolve(__dirname, '..'), env: { ...process.env, TZ: zone }, encoding: 'utf8',
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return JSON.parse(run.stdout) as { daysRemaining: number; projectedMonthEndUsd: number };
+  };
+  const expected = { daysRemaining: 24.5, projectedMonthEndUsd: 476.92 };
+  assert.deepEqual(evaluateInZone('UTC'), expected);
+  assert.deepEqual(evaluateInZone('Asia/Tokyo'), expected);
 });
 
 test('detectAnomalies: flat series produces no anomalies', () => {
@@ -163,4 +188,25 @@ test('rollupChargeback: excludes out-of-window events and includes the end date'
   assert.equal(r.totalEvents, 2);
   assert.equal(r.totalOrgSpendUsd, 30);
   assert.equal(r.departments[0].share, 100);
+});
+
+test('UTC date parser accepts leap day and rejects normalized impossible dates', () => {
+  assert.notEqual(parseUtcDate('2028-02-29'), null);
+  assert.equal(parseUtcDate('2026-02-29'), null);
+  assert.equal(parseUtcDate('2026-02-31'), null);
+  assert.equal(parseUtcInstant('2026-02-31T12:00:00Z'), null);
+  assert.equal(parseUtcInstant('2026-03-03T24:00:00Z'), null);
+});
+
+test('rollupChargeback rejects impossible windows and ignores impossible event timestamps', () => {
+  const event = (timestamp: string) => ({
+    eventId: 'march3', timestamp, user: 'a@x', department: 'eng', project: 'p1',
+    modelId: 'claude-opus-4.7', provider: 'Anthropic', inputTokens: 100, outputTokens: 50,
+    totalCostUsd: 7,
+  });
+  assert.throws(() => rollupChargeback([event('2026-03-03T12:00:00Z')], '2026-02-31', '2026-03-03'), /valid, ordered UTC dates/);
+  assert.throws(() => rollupChargeback([event('2026-03-03T12:00:00Z')], '2026-03-03', '2026-04-31'), /valid, ordered UTC dates/);
+  assert.throws(() => rollupChargeback([event('2026-03-03T12:00:00Z')], '2026-03-04', '2026-03-03'), /valid, ordered UTC dates/);
+  assert.equal(rollupChargeback([event('2026-02-31T12:00:00Z')], '2026-03-03', '2026-03-03').totalEvents, 0);
+  assert.equal(rollupChargeback([event('2026-03-03T12:00:00Z')], '2026-03-03', '2026-03-03').totalOrgSpendUsd, 7);
 });

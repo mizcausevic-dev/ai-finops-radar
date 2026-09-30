@@ -82,6 +82,8 @@ Rollup includes per-department: total spend, share of org spend, unique users/pr
 | POST | `/api/insights/forecast` | Illustrative month-end projection and range |
 | POST | `/api/insights/chargeback` | Department chargeback rollup |
 
+Budget evaluation requires a first-of-month UTC date and an `asOf` UTC instant within that month. Chargeback windows accept real UTC calendar dates (inclusive days) or UTC instants; impossible dates and reversed windows return HTTP 400.
+
 ### Dashboard
 
 | Method | Endpoint | Purpose |

@@ -2,6 +2,8 @@
 // CFO actually wants: "are we on track for our monthly AI spend, and if
 // not, which department blew through the threshold first?"
 
+import { nextUtcMonthStart, parseUtcDate, parseUtcInstant } from './utc-date';
+
 export interface Budget {
   budgetId: string;
   scope: 'org' | 'department' | 'project';
@@ -30,18 +32,18 @@ export interface BudgetStatus {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function daysBetween(from: string, to: string): number {
-  return Math.max(0, (new Date(to).getTime() - new Date(from).getTime()) / DAY_MS);
-}
-
-function daysInMonth(date: string): number {
-  const d = new Date(date);
-  return new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getUTCDate();
-}
-
 export function evaluateBudget(budget: Budget, spentUsd: number, asOf: string): BudgetStatus {
-  const daysElapsed = daysBetween(budget.startOfMonth, asOf);
-  const totalDays = daysInMonth(budget.startOfMonth);
+  const startMs = parseUtcDate(budget.startOfMonth);
+  const asOfMs = parseUtcInstant(asOf);
+  if (startMs === null || !budget.startOfMonth.endsWith('-01')) {
+    throw new RangeError('startOfMonth must be the first day of a valid UTC month.');
+  }
+  const nextMonthMs = nextUtcMonthStart(startMs);
+  if (asOfMs === null || asOfMs < startMs || asOfMs >= nextMonthMs) {
+    throw new RangeError('asOf must be within the budget month.');
+  }
+  const daysElapsed = (asOfMs - startMs) / DAY_MS;
+  const totalDays = (nextMonthMs - startMs) / DAY_MS;
   const daysRemaining = Math.max(0, totalDays - daysElapsed);
 
   const burnRatePerDay = daysElapsed > 0 ? spentUsd / daysElapsed : 0;
