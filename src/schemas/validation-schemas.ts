@@ -1,38 +1,50 @@
 import { z } from 'zod';
+import { nextUtcMonthStart, parseUtcDate, parseUtcInstant, parseUtcWindowBoundary } from '../governance/utc-date';
+
+const validUtcDate = (value: string) => parseUtcDate(value) !== null;
+const validUtcInstant = (value: string) => parseUtcInstant(value) !== null;
+const validUtcBoundary = (value: string) => parseUtcWindowBoundary(value, false) !== null;
 
 export const CostInputSchema = z.object({
-  modelId: z.string().min(1),
-  inputTokens: z.number().int().min(0),
-  outputTokens: z.number().int().min(0),
-  cachedInputTokens: z.number().int().min(0).optional(),
+  modelId: z.string().min(1).max(100),
+  inputTokens: z.number().int().min(0).max(1_000_000_000),
+  outputTokens: z.number().int().min(0).max(1_000_000_000),
+  cachedInputTokens: z.number().int().min(0).max(1_000_000_000).optional(),
 });
 
 export const CompareInputSchema = z.object({
-  inputTokens: z.number().int().min(0),
-  outputTokens: z.number().int().min(0),
-  modelIds: z.array(z.string()).optional(),
+  inputTokens: z.number().int().min(0).max(1_000_000_000),
+  outputTokens: z.number().int().min(0).max(1_000_000_000),
+  modelIds: z.array(z.string().min(1).max(100)).max(50).optional(),
 });
 
 export const BudgetEvalSchema = z.object({
   budget: z.object({
-    budgetId: z.string().min(1),
+    budgetId: z.string().min(1).max(100),
     scope: z.enum(['org', 'department', 'project']),
-    scopeName: z.string().min(1),
-    monthlyBudgetUsd: z.number().min(0),
-    startOfMonth: z.string().min(1),
+    scopeName: z.string().min(1).max(100),
+    monthlyBudgetUsd: z.number().min(0).max(1_000_000_000),
+    startOfMonth: z.string().regex(/^\d{4}-\d{2}-01$/).refine(validUtcDate, 'Must be the first day of a valid UTC month.'),
     rolloverPolicy: z.enum(['reset', 'rollover']),
   }),
-  spentUsd: z.number().min(0),
-  asOf: z.string().min(1),
+  spentUsd: z.number().min(0).max(1_000_000_000),
+  asOf: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
+}).superRefine((input, context) => {
+  const startMs = parseUtcDate(input.budget.startOfMonth);
+  const asOfMs = parseUtcInstant(input.asOf);
+  if (startMs === null || asOfMs === null || !input.budget.startOfMonth.endsWith('-01')) return;
+  if (asOfMs < startMs || asOfMs >= nextUtcMonthStart(startMs)) {
+    context.addIssue({ code: 'custom', path: ['asOf'], message: 'Must be within the budget month.' });
+  }
 });
 
 export const SeriesPointSchema = z.object({
-  date: z.string().min(1),
-  costUsd: z.number().min(0),
+  date: z.string().refine(validUtcDate, 'Must be a valid UTC date.'),
+  costUsd: z.number().min(0).max(1_000_000_000),
 });
 
 export const AnomalyDetectSchema = z.object({
-  series: z.array(SeriesPointSchema).min(1),
+  series: z.array(SeriesPointSchema).min(1).max(366),
   windowSize: z.number().int().min(2).optional(),
   zScoreWarn: z.number().min(0).optional(),
   zScoreCritical: z.number().min(0).optional(),
@@ -40,26 +52,26 @@ export const AnomalyDetectSchema = z.object({
 });
 
 export const ForecastInputSchema = z.object({
-  series: z.array(SeriesPointSchema).min(1),
-  monthStart: z.string().min(1),
-  asOf: z.string().min(1),
+  series: z.array(SeriesPointSchema).min(1).max(31),
+  monthStart: z.string().regex(/^\d{4}-\d{2}-01$/).refine(validUtcDate, 'Must be a valid UTC date.'),
+  asOf: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
 });
 
 const UsageEventSchema = z.object({
-  eventId: z.string().min(1),
-  timestamp: z.string().min(1),
-  user: z.string().min(1),
-  department: z.string().min(1),
-  project: z.string().min(1),
-  modelId: z.string().min(1),
-  provider: z.string().min(1),
-  inputTokens: z.number().int().min(0),
-  outputTokens: z.number().int().min(0),
-  totalCostUsd: z.number().min(0),
+  eventId: z.string().min(1).max(100),
+  timestamp: z.string().datetime().refine(validUtcInstant, 'Must be a valid UTC instant.'),
+  user: z.string().min(1).max(200),
+  department: z.string().min(1).max(100),
+  project: z.string().min(1).max(100),
+  modelId: z.string().min(1).max(100),
+  provider: z.string().min(1).max(100),
+  inputTokens: z.number().int().min(0).max(1_000_000_000),
+  outputTokens: z.number().int().min(0).max(1_000_000_000),
+  totalCostUsd: z.number().min(0).max(1_000_000_000),
 });
 
 export const ChargebackSchema = z.object({
-  events: z.array(UsageEventSchema).min(1),
-  windowStart: z.string().min(1),
-  windowEnd: z.string().min(1),
+  events: z.array(UsageEventSchema).min(1).max(500),
+  windowStart: z.string().refine(validUtcBoundary, 'Must be a valid UTC date or instant.'),
+  windowEnd: z.string().refine(validUtcBoundary, 'Must be a valid UTC date or instant.'),
 });

@@ -1,6 +1,5 @@
-// Provider pricing catalog (per 1M tokens, USD). Reflects published list
-// pricing as of mid-2026. In production this would be configurable per-org
-// (volume discounts, committed-spend deals, regional surcharges).
+// Illustrative pricing inputs (per 1M tokens, USD) for the synthetic fixture.
+// These figures are not synchronized with provider price lists or contracts.
 
 export interface PriceEntry {
   provider: string;
@@ -76,7 +75,10 @@ export function computeCost(input: CostInput): CostBreakdown {
   }
 
   const cachedTokens = input.cachedInputTokens ?? 0;
-  const billableInputTokens = Math.max(0, input.inputTokens - cachedTokens);
+  if (cachedTokens > input.inputTokens) {
+    throw new RangeError('cachedInputTokens cannot exceed inputTokens.');
+  }
+  const billableInputTokens = input.inputTokens - cachedTokens;
 
   const inputCostUsd = (billableInputTokens / 1_000_000) * pricing.inputUsdPer1M;
   const outputCostUsd = (input.outputTokens / 1_000_000) * pricing.outputUsdPer1M;

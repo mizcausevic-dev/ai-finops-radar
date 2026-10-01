@@ -2,6 +2,8 @@
 // that finance actually invoices on: which department spent how much,
 // across which providers, on what use cases.
 
+import { parseUtcInstant, parseUtcWindowBoundary } from './utc-date';
+
 export interface UsageEvent {
   eventId: string;
   timestamp: string;
@@ -51,11 +53,20 @@ function topByValue<T extends Record<string, number>>(map: Map<string, number>, 
 }
 
 export function rollupChargeback(events: UsageEvent[], windowStart: string, windowEnd: string): ChargebackRollup {
-  if (events.length === 0) {
+  const startMs = parseUtcWindowBoundary(windowStart, false);
+  const endMs = parseUtcWindowBoundary(windowEnd, true);
+  if (startMs === null || endMs === null || startMs > endMs) {
+    throw new RangeError('windowStart and windowEnd must be valid, ordered UTC dates.');
+  }
+  const included = events.filter((event) => {
+    const timestamp = parseUtcInstant(event.timestamp);
+    return timestamp !== null && timestamp >= startMs && timestamp <= endMs;
+  });
+  if (included.length === 0) {
     return { totalOrgSpendUsd: 0, totalEvents: 0, windowStart, windowEnd, departments: [] };
   }
 
-  const totalOrgSpendUsd = events.reduce((s, e) => s + e.totalCostUsd, 0);
+  const totalOrgSpendUsd = included.reduce((s, e) => s + e.totalCostUsd, 0);
   const buckets = new Map<string, {
     department: string;
     totalCostUsd: number;
@@ -69,7 +80,7 @@ export function rollupChargeback(events: UsageEvent[], windowStart: string, wind
     projectCosts: Map<string, number>;
   }>();
 
-  for (const e of events) {
+  for (const e of included) {
     const cur = buckets.get(e.department) || {
       department: e.department,
       totalCostUsd: 0,
@@ -122,7 +133,7 @@ export function rollupChargeback(events: UsageEvent[], windowStart: string, wind
 
   return {
     totalOrgSpendUsd: Math.round(totalOrgSpendUsd * 100) / 100,
-    totalEvents: events.length,
+    totalEvents: included.length,
     windowStart,
     windowEnd,
     departments,
