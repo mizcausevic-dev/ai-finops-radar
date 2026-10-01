@@ -2,7 +2,11 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import request from 'supertest';
 import { app } from '../src/index';
+import { isLocalHostHeader } from '../src/config/runtime-boundary';
 
 let server: Server;
 let baseUrl: string;
@@ -18,6 +22,42 @@ const post = (path: string, body: unknown) => fetch(new URL(path, baseUrl), {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify(body),
+});
+
+test('fixture server rejects DNS rebinding hosts and marks responses no-store', async () => {
+  assert.equal(isLocalHostHeader(undefined), false);
+  for (const host of ['attacker.example', 'localhost.attacker.example', '127.0.0.1.attacker.example', 'localhost:65536']) {
+    assert.equal(isLocalHostHeader(host), false);
+    const response = await request(app).get('/health').set('Host', host);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers['cache-control'], 'no-store');
+  }
+  const allowed = await request(app).get('/health').set('Host', 'localhost:3000');
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers['cache-control'], 'no-store');
+  assert.equal(isLocalHostHeader('127.0.0.1:3000'), true);
+});
+
+test('fixture server refuses a production startup', () => {
+  const result = spawnSync(process.execPath, ['--require', 'ts-node/register', 'src/index.ts'], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, NODE_ENV: 'production', PORT: '3000' },
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /fixture-only and cannot start/);
+});
+
+test('fixture server refuses an invalid port instead of silently truncating it', () => {
+  const result = spawnSync(process.execPath, ['--require', 'ts-node/register', 'src/index.ts'], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, NODE_ENV: 'development', PORT: '3000junk' },
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /PORT must be an integer/);
 });
 
 test('dashboard summary labels its fixture and reconciles chargeback shares', async () => {

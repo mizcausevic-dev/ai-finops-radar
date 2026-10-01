@@ -9,6 +9,8 @@ Local FinOps logic demonstrator for AI usage. It computes sample token costs, bu
 
 > **Demo boundary:** No provider billing or invoice feed is connected. The 17-entry price catalog is illustrative and unverified for current provider rates or your contracts. The May 2026 usage records, departments, and budgets are synthetic. Forecast ranges are heuristic and have no validated statistical coverage. Do not use these outputs for invoices, purchasing, or production chargeback.
 
+The API is limited to a local fixture demo. It binds to `127.0.0.1`, rejects non-local HTTP Host headers, sends `Cache-Control: no-store`, and refuses startup when `NODE_ENV` is `production` or another non-demo mode. Its [local release and rollback runbook](docs/local-release-and-rollback.md) and [dated rehearsal evidence](docs/local-release-drill-2026-10-01.md) do not constitute a production deployment procedure.
+
 ## Why This Exists
 
 Finance teams need a way to connect model usage to budgets and cost drivers. This repository demonstrates the calculations with a fixed, inspectable fixture rather than claiming live invoice coverage.
