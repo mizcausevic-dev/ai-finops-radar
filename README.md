@@ -166,6 +166,8 @@ The test suite covers cost calculation, provider comparison, budget evaluation, 
 
 The service binds to `127.0.0.1` and is a local demo. An external deployment would require authenticated tenant-scoped ingestion, invoice reconciliation, current provider and contract price provenance, access controls for employee and department data, request abuse controls, retention rules, and observability. No production deployment is configured or claimed.
 
+The [permissioned reconciliation intake](docs/reconciliation-intake.md) specifies the minimum matching usage, billing, and rate evidence for a later local pilot. Those inputs are not available for this draft, so its calculations remain fixture-only.
+
 ## Future Enhancements
 
 - Pull live invoices from Anthropic / OpenAI / AWS Cost Explorer
