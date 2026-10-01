@@ -9,7 +9,7 @@ if (!/^[1-9]\d{0,4}$/.test(rawPort) || Number(rawPort) > 65535) {
 
 export const env = {
   port: Number(rawPort),
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV ?? '',
 };
 
-assertFixtureOnlyRuntime(env.nodeEnv);
+assertFixtureOnlyRuntime(env.nodeEnv, process.env.FINOPS_LOCAL_FIXTURE);

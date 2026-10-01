@@ -1,6 +1,6 @@
 # Local fixture release and rollback
 
-This runbook applies only to the loopback synthetic demo. There is no configured production target, authenticated data ingestion, provider billing source, or approved finance use. `NODE_ENV=production` intentionally refuses startup. Do not expose the API through a reverse proxy or load real usage/invoice data.
+This runbook applies only to the loopback synthetic demo. There is no configured production target, authenticated data ingestion, provider billing source, or approved finance use. Startup requires explicit `NODE_ENV=development` and `FINOPS_LOCAL_FIXTURE=1`; production or missing mode/opt-in refuses startup. Do not expose the API through a reverse proxy or load real usage/invoice data.
 
 ## Candidate rehearsal
 
@@ -11,9 +11,10 @@ This runbook applies only to the loopback synthetic demo. There is no configured
    ```powershell
    $env:PORT = '3101'
    $env:NODE_ENV = 'development'
+   $env:FINOPS_LOCAL_FIXTURE = '1'
    node .\dist\index.js
    ```
-4. From the same machine, query `http://127.0.0.1:3101/health` and `http://127.0.0.1:3101/api/dashboard/summary`. Require HTTP 200, `dataMode: synthetic-demo` on the summary, and `Cache-Control: no-store`. A request carrying a non-local Host header must return HTTP 403.
+4. From the same machine, query `http://127.0.0.1:3101/health` and `http://127.0.0.1:3101/api/dashboard/summary`. Require HTTP 200, `dataMode: synthetic-demo` on the summary, and `Cache-Control: no-store`. A request carrying a non-local Host or any proxy-forwarding header must return HTTP 403. This header check does not make a reverse-proxy deployment safe.
 5. Stop the candidate process. Record its port and process ID. Do not leave a background listener running.
 
 ## Rollback rehearsal

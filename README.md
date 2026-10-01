@@ -9,7 +9,7 @@ Local FinOps logic demonstrator for AI usage. It computes sample token costs, bu
 
 > **Demo boundary:** No provider billing or invoice feed is connected. The 17-entry price catalog is illustrative and unverified for current provider rates or your contracts. The May 2026 usage records, departments, and budgets are synthetic. Forecast ranges are heuristic and have no validated statistical coverage. Do not use these outputs for invoices, purchasing, or production chargeback.
 
-The API is limited to a local fixture demo. It binds to `127.0.0.1`, rejects non-local HTTP Host headers, sends `Cache-Control: no-store`, and refuses startup when `NODE_ENV` is `production` or another non-demo mode. Its [local release and rollback runbook](docs/local-release-and-rollback.md) and [dated rehearsal evidence](docs/local-release-drill-2026-10-01.md) do not constitute a production deployment procedure.
+The API is limited to a local fixture demo. It binds to `127.0.0.1`, rejects non-local Host and proxy-forwarding headers, sends `Cache-Control: no-store`, and requires explicit `NODE_ENV=development` and `FINOPS_LOCAL_FIXTURE=1` to start. Its [local release and rollback runbook](docs/local-release-and-rollback.md) and [dated rehearsal evidence](docs/local-release-drill-2026-10-01.md) do not constitute a production deployment procedure.
 
 ## Why This Exists
 
@@ -137,8 +137,10 @@ This is a Chrome capture of `/preview` against the running local API. The page f
 git clone https://github.com/mizcausevic-dev/ai-finops-radar.git
 cd ai-finops-radar
 npm ci
-npm run dev
+NODE_ENV=development FINOPS_LOCAL_FIXTURE=1 npm run dev
 ```
+
+In PowerShell, use `$env:NODE_ENV = 'development'` and `$env:FINOPS_LOCAL_FIXTURE = '1'` before `npm.cmd run dev`.
 
 Visit:
 

@@ -36,6 +36,10 @@ test('fixture server rejects DNS rebinding hosts and marks responses no-store', 
   assert.equal(allowed.status, 200);
   assert.equal(allowed.headers['cache-control'], 'no-store');
   assert.equal(isLocalHostHeader('127.0.0.1:3000'), true);
+  const proxied = await request(app).get('/health')
+    .set('Host', 'localhost:3000')
+    .set('X-Forwarded-Host', 'public.example');
+  assert.equal(proxied.status, 403);
 });
 
 test('fixture server refuses a production startup', () => {
@@ -46,7 +50,23 @@ test('fixture server refuses a production startup', () => {
     timeout: 15_000,
   });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /fixture-only and cannot start/);
+  assert.match(result.stderr, /fixture-only; set NODE_ENV=development/);
+});
+
+test('fixture server requires explicit local opt-in and mode', () => {
+  for (const overrides of [
+    { NODE_ENV: 'development', FINOPS_LOCAL_FIXTURE: '' },
+    { NODE_ENV: '', FINOPS_LOCAL_FIXTURE: '1' },
+  ]) {
+    const result = spawnSync(process.execPath, ['--require', 'ts-node/register', 'src/index.ts'], {
+      cwd: path.join(__dirname, '..'),
+      env: { ...process.env, PORT: '3000', ...overrides },
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /fixture-only; set NODE_ENV=development/);
+  }
 });
 
 test('fixture server refuses an invalid port instead of silently truncating it', () => {

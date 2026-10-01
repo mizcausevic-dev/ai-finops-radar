@@ -3,7 +3,7 @@ import helmet from 'helmet';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { env } from './config/env';
-import { isLocalHostHeader } from './config/runtime-boundary';
+import { hasProxyForwardingHeaders, isLocalHostHeader } from './config/runtime-boundary';
 import { costRouter, budgetsRouter, insightsRouter, dashboardRouter } from './routes/index';
 
 export const app = express();
@@ -14,7 +14,7 @@ const previewScript = readFileSync(path.join(__dirname, '..', 'dashboard-preview
 app.use(helmet());
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (!isLocalHostHeader(req.headers.host)) {
+  if (!isLocalHostHeader(req.headers.host) || hasProxyForwardingHeaders(req.headers)) {
     res.status(403).json({ error: 'Local fixture demo only' });
     return;
   }
